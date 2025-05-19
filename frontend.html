@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Status das Impressoras</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px;}
+    .grafico {
+      display: inline-block;
+      margin: 20px;
+      text-align: center;
+      width: 400px;
+    }
+    canvas { display: block; margin: 0 auto; }
+    .titulo {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    #titulo-principal {
+        text-align: center;
+        margin-top: 0;
+    }
+    body::after {
+        content: "";
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        width: 200px; /* ajuste o tamanho conforme necessário */
+        height: 100px;
+        background-image: url('Imagem.png'); /* substitua pelo caminho da imagem */
+        background-size: contain;
+        background-repeat: no-repeat;
+        opacity: 0.1; /* transparência para parecer marca d'água */
+        pointer-events: none;
+        z-index: 999;
+    }
+
+  </style>
+</head>
+<body>
+  <h1 id="titulo-principal">Status das Impressoras</h1>
+  <div id="graficos">Carregando...</div>
+
+  <script>
+    async function carregarStatus() {
+      try {
+        const response = await fetch("http://localhost:5000/status");
+        const dados = await response.json();
+        desenharGraficosSeparados(dados);
+      } catch {
+        document.getElementById('graficos').innerHTML = "Erro ao carregar status.";
+      }
+    }
+
+    function desenharFatias(ctx, x, y, radius, porcentagem, cor, rotacaoInicial) {
+      const angulo = (porcentagem / 100) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, radius, rotacaoInicial, rotacaoInicial + angulo);
+      ctx.closePath();
+      ctx.fillStyle = cor;
+      ctx.fill();
+      return rotacaoInicial + angulo;
+    }
+
+    function criarGrafico(nome, tipo, valor) {
+      const div = document.createElement('div');
+      div.className = 'grafico';
+
+      const titulo = document.createElement('div');
+      titulo.className = 'titulo';
+      titulo.textContent = `${nome} - ${tipo}`;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 360;
+      canvas.height = 360;
+
+      const ctx = canvas.getContext('2d');
+      const centerX = 180, centerY = 180, radius = 160;
+      let inicio = -Math.PI / 2;
+
+      // Fatia preenchida (restante)
+      inicio = desenharFatias(ctx, centerX, centerY, radius, valor, tipo === 'Toner' ? '#4CAF50' : '#2196F3', inicio);
+      // Fatia restante do círculo (usado)
+      desenharFatias(ctx, centerX, centerY, radius, 100 - valor, '#ddd', inicio);
+
+      // Texto no centro com a porcentagem
+      ctx.fillStyle = '#000';
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${valor}%`, centerX, centerY);
+
+      div.appendChild(titulo);
+      div.appendChild(canvas);
+      return div;
+    }
+
+    function desenharGraficosSeparados(dados) {
+      const container = document.getElementById('graficos');
+      container.innerHTML = '';
+
+      for (const [nome, valores] of Object.entries(dados)) {
+        if (typeof valores === 'object') {
+          container.appendChild(criarGrafico(nome, 'Toner', valores.toner));
+          container.appendChild(criarGrafico(nome, 'Unidade de Imagem', valores.drum));
+        } else {
+          const erro = document.createElement('div');
+          erro.className = 'grafico';
+          erro.textContent = `${nome}: ${valores}`;
+          container.appendChild(erro);
+        }
+      }
+    }
+
+    carregarStatus();
+  </script>
+</body>
+</html>
